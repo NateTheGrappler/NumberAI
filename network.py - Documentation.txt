@@ -1,0 +1,195 @@
+Personal Documentation for how the code of "network.py" works
+
+Sigmoid function - This is the basic function that normalizes the output values of the
+sigmoid neuron in order to get it between 0 and 1
+
+sigmoid derivative -
+
+Network class:
+
+----------------------------------------constructor-------------------------------------------------------
+
+__init__() - this function is the constructor of the object, and takes in a array called sizes.
+This sizes array represents the layers of the network, as well as the number of neurons per layer.
+So, [5, 3, 10] is a network with 3 layers, the first having 5 neurons etc. This sizes array
+is stored, alongside the len of the sizes are as num_layers. The two other variables
+
+        self.biases  = [np.random.randn(y, 1) for y in sizes[1:]]
+        self.weights = [np.random.randn(y, x) for x, y in zip(sizes[:-1], sizes[1:])]
+
+This generates a random bias for each node based on the number of neurons in the layers after the first
+input layer, meaning the hidden and the output layers.
+The self.weights is generated in a similar manner, in which the zip function (image zip merging for driving)
+takes the first and last values in the sizes array and determines a random weight based off of that.
+Note, that both bias and weights are techically vectors with 1 row, basically both just lists of values
+
+----------------------------------------FeedForward-----------------------------------------------------------
+feedforward(self, a) - this function basically takes an input of a float between 0-1, and then, based
+on the weights and biases of layer, once again outputs another value between 0-1, it acts as the logic
+for the actual sigmoid neuron, implementing the sigmoid function.
+
+----------------------------------------Gradient Descent-------------------------------------------------------
+stochasticGradientDescent(self, training_data, epochs, mini_batch_size, eta, test_data = None)
+
+First the arguments of the function:
+
+        1. training_data   - this is a list of tuples (x, y) with x representing the given data, and then y
+        representing the actual answer for what that data is. Basically the inputs and the outputs.
+
+        2. epochs          - this is the number of total pass throughs of the entirety of the data
+
+        3. mini_batch_size - the mini_batch_size var is an int that holds the small batch size of the total
+        data. Essentially, if the whole data is 60,000 elements, the mini_batch_size might be 60, or 600
+
+        4. eta             - the eta is the learning rate η, aka the multiplier of how much to step in
+        the Gradient descent 
+
+        5. the test data variable is optional, but if given, it basically means that the function will
+        check to see how well the network has done after each epoch of training, it slows down the process
+        but showcases how it works
+
+The function first checks to see if there is an input into the test_data var, and if so, then it
+sets a var to be the length of the training data, used for the forloop later on in the function.
+
+After doing so, it beings a for loop in the range of the number of epochs, or the run throughs of the entire data,
+where in it first randomizes the data as to avoid bias. The data is the split up into a large amount of
+mini_batchs. Which are stored in their own list.
+
+The mini_batches are made as follows: 
+
+     mini_batches = [
+                training_data[k:k+mini_batch_size]
+                for k in range(0, n, mini_batch_size)
+                ]
+
+where the training_data variable is indexed at zero, and goes all the way until the size of the data.
+This value is indexed by the mini_batch_size, the data is then taken at equal seperations of this val. 
+Example:
+
+range(0, 10, 3) generates: [0, 3, 6, 9]
+
+When k=0: training_data[0:3] → [img1, img2, img3]
+
+When k=3: training_data[3:6] → [img4, img5, img6]
+
+When k=6: training_data[6:9] → [img7, img8, img9]
+
+When k=9: training_data[9:12] → [img10] (last batch is smaller)
+
+
+then, for each of this batches, youre going to run an update_min_batch, which does all the fancy calculus
+to calculate the cost and adjust the weights and balances as needed. More on it later.
+
+----------------------------------------Update Mini Batch-------------------------------------------------------
+
+update_min_batch(mini_batch, learningRate) - this function updates the weights and biases and is the actual
+part where the "learning happens"
+
+The functions first creates two variables: ∇biases and ∇weights. These are basically empty matrices that are 
+instantiated inside of numpy, they are the same size as the biases and weights for the inner class, because each
+of the weights and biases have their own partial derivative, and this is where they are stored. 
+
+Most of the work is done in the next line:
+
+    delta_nabla_b, delta_nabla_w = self.backprop(x, y)
+
+this follows something called the back propigation algorithm, which is a fast way of
+computing the gradient of the cost function. 
+
+This means that update_min_batch computes this gradient of the cost function for every single one
+of the training examples that were defined in the earlier mentioned function. Then updating the 
+self.weights and self.biases properly.
+
+after the backdrop call, you combine the gradients of all examples in the batch, meaning that nabla_b and nabla_w contain
+the sum of the gradients that were calculated for all of the examples in the given batch.
+
+Then the two lines: 
+
+        self.weights = [
+            w-(learningRate / len(mini_batch)) * nw
+            for w, nw in zip(self.weights, nabla_w)
+            ]
+        
+        self.biases = [
+            b - (learningRate / len(mini_batch) * nb)
+            for b, nb in zip(self.biases, nabla_b)
+        ]
+
+These both update the actual values of the weights and biases by moving them closer
+towards a given local minimum of the cost function. the (learningrate / len(mini_batch)) * nw
+where nw is the sum gradient for the weight based on the data in the current mini batch.
+You divide this by the len/size of the batch in order to get the average gradient. then
+multiply by the learning rate in order to control the step size of how much to move within
+of the function. The w -  and b - are there in order to take a step in descent, aka the
+opposite direction, meaning that the function always goes down towards a minimum.
+
+wk → w′k= wk − η∂Cx/∂wk   //the update rule
+v → v′= v − η∇C
+
+----------------------------------------Back Propagation-------------------------------------------------------
+This two sets up an empty matrices that are in the same size as the biases and weights
+However, it also sets up an activation variable, which is the given output of the network
+for that value, it is gotten from the training data. Activations also holds all of the given data
+values. 
+
+activation:  Current layer's output (starts as input)
+activations: List storing ALL layer outputs (for later use in backprop)
+zs:          List storing ALL weighted inputs (z = wx + b) before activation
+
+//this is the forward pass pretty much
+then, in a forloop that gets the weights and biases, you first calculate the z value
+using the formula of z = w * a + b where w is the weight, a is the input, and b is the bias.
+This z value is then stored unchanged in the zs list. Afterward, it goes through the sigmoid
+function to be normalized and is sent to the activations list.
+
+This is important:
+
+    //mathematically δ^L = ∇_a C ⊙ σ'(z^L)
+    delta = self.cost_derivatives(activations[-1], y) * sigmoidFunction(zs[-1])
+
+This calculates the error in the output layer, where activation[-1] is the prediction of
+the network. y is the target that is desired, basically ||y(x) - a||, multiplied by
+the value within of the activation function, aka the sigmoidFunction(zs[-1]).
+
+This leads to the value of the error at this layer (the output layer)
+
+the bias gradient is then equal to this error nabla_b[-1] = delta
+this then goes through the weight gradient calculation, which is lowkey some math
+that is beyond me.
+
+BACKWARD PASS - Hidden layers:
+
+        for l in range(2, self.num_layers):
+            z = zs[-l]
+            sp = sigmoidDerivative(z)
+
+            delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
+            nabla_b[-l] = delta
+            nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
+        return (nabla_b, nabla_w)
+
+l - 2 means the second to last layer (given out network has only 3 layers, this val is two)
+you then get the z aka the output without the sigmoid function, for the given layer, 
+and then calculate the derivative of the sigmoid at this layer
+
+    delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
+
+this then takes the weights for the next layer, transposes to propagate backwards,
+multiply this weight by the next layers error, and then multiply it all by the current
+layers sigmoid derivative.
+
+you then store this in nabla_b, and calculate it for nable_w, and return it.
+
+----------------------------------------Evaluate-------------------------------------------------------
+
+Evaluate(test_data): this function creates a list of (predication, actual values) pairs
+for all of the test examples.
+
+It basically takes the x input and runs it through the network, and returns the 10
+element vector. So basically like 0 - 9, and then evaluates which of those is the highest.
+Essentially the function that tells you what the ai thinks the number is most likely to be
+
+
+
+
+
