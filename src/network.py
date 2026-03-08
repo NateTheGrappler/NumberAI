@@ -1,6 +1,7 @@
-import time
 import random
 import numpy as np
+import datetime
+import json
 
 #misc functions that arent in network
 def sigmoidFunction(z):
@@ -101,3 +102,50 @@ class Network(object):
     
     def cost_derivative(self, output_activations, y):
         return output_activations - y
+    
+    def save_with_metadata(self, fileName = None, test_accuracy = None):
+
+        #init file if there is none passed in
+        if(fileName is None):
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"mnist_network_{timestamp}.pkl"
+        
+        #set up structure
+        data = {
+            'metadata' : {
+                'timestamp': str(datetime.datetime.now()),
+                'architecture': self.sizes,
+                'test_accuracy': test_accuracy,
+                'num_layer': self.num_layers
+            },
+            'weights': [w.tolist() for w in self.weights],
+            'biases':  [b.tolist() for b in self.biases]
+        }
+
+        #save the data to the json file
+        json_filename = filename.replace('.pk1', '.json')
+        with open(json_filename, "w") as f:
+            json.dump(data, f, indent=2)
+
+        #indicate saving, and return file name
+        print(f"Network saved to {filename} and {json_filename}")
+        return filename
+    
+    @classmethod
+    def load_with_metadata(cls, filename):
+        # load in the data
+        with open(filename, "rb") as f:
+            data = json.load(f)
+        
+        #create network with same set up
+        network = cls(data['metadata']['architecture'])
+
+        #convert to numpy arrays
+        network.weights = [np.array(w) for w in data['weights']]
+        network.biases  = [np.array(b) for b in data['biases']]
+
+        #let user know the data loaded
+        print(f"Network loaded from {filename}")
+        print(f"Metadata: {data['metadata']}")
+        
+        return network
